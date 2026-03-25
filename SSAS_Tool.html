@@ -575,6 +575,13 @@ async function submitPin() {
 
   if (pin.length < 6) { showError('pin-error', 'Your access code must be at least 6 characters.'); return; }
 
+  // Clinician PIN
+  if (pin.toLowerCase() === CLINICIAN_PHRASE) {
+    document.getElementById('pin-input').value = '';
+    showScreen('clinician-lookup');
+    return;
+  }
+
   // Demo PIN
   if (pin === DEMO_PIN) {
     currentPin = DEMO_PIN;
@@ -648,13 +655,6 @@ async function verifyAnimal() {
   const animal = document.getElementById('animal-input').value.trim();
   hideMsg('animal-error');
   if (!animal) { showError('animal-error', 'Please enter your animal.'); return; }
-
-  // Clinician passphrase
-  if (animal.toLowerCase() === CLINICIAN_PHRASE) {
-    document.getElementById('animal-input').value = '';
-    showScreen('clinician-lookup');
-    return;
-  }
 
   setLoading('animal-btn', true, 'Continue');
   showStatus('animal-status', 'Verifying…');
