@@ -230,7 +230,7 @@
   .band-range { font-size: 11px; opacity: 0.8; margin-top: 2px; }
 
   /* Chart */
-  .chart-wrap { position: relative; height: 240px; margin-bottom: 20px; }
+  .chart-wrap { position: relative; height: 280px; margin-bottom: 20px; }
 
   /* History table */
   .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -262,6 +262,22 @@
 
   .btn-row { display: flex; gap: 12px; margin-top: 8px; }
   .btn-row .btn { flex: 1; }
+
+  /* Chart toggle */
+  .chart-toggle-btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--white);
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .chart-toggle-btn:hover { border-color: var(--teal); color: var(--teal-dark); }
+  .chart-toggle-btn.active { border-color: var(--teal-dark); background: var(--teal-dark); color: white; }
 
   /* Print styles */
   @media print {
@@ -479,7 +495,12 @@
       <div class="tool-eyebrow">Clinician View</div>
       <div class="tool-title" id="clinician-trends-title">Symptom Trends</div>
       <div class="card-subtitle">Full history, most recent first. Scores range from 0–48.</div>
+      <div class="no-print" style="display:flex; gap:10px; margin-bottom:20px;">
+        <button class="chart-toggle-btn active" id="toggle-line" onclick="switchChart('line')">📈 Total Score</button>
+        <button class="chart-toggle-btn" id="toggle-bar" onclick="switchChart('bar')">📊 Question Breakdown</button>
+      </div>
       <div id="clinician-trends-content"></div>
+      <div id="clinician-breakdown-content" style="display:none;"></div>
       <p class="footnote" style="margin-top:24px;">Adapted from: Raymond, N. et al (2007). <em>Sexual Addiction &amp; Compulsivity, 14</em>(2), 119–129.</p>
     </div>
   </div>
@@ -489,6 +510,7 @@
 <script>
 const PROXY_URL = "https://script.google.com/macros/s/AKfycbzDAMHN8yW5ROkOhJX4BAKFMOc54_uGhDELnagd34irn7rKtNPao7bsaI297OapHYGT/exec";
 const DEMO_PIN = "000000";
+const CLINICIAN_DEMO_PIN = "999999";
 const CLINICIAN_PHRASE = "ocsb therapist";
 
 // ── Demo Data ─────────────────────────────────────────────────────────────────
@@ -535,6 +557,12 @@ async function clinicianLookup() {
   // Demo PIN in clinician mode
   if (pin === DEMO_PIN) {
     document.getElementById('clinician-trends-title').textContent = `Symptom Trends — PIN: ${pin} (Demo)`;
+    clinicianHistory = DEMO_HISTORY;
+    document.getElementById('clinician-breakdown-content').innerHTML = '';
+    document.getElementById('clinician-breakdown-content').style.display = 'none';
+    document.getElementById('clinician-trends-content').style.display = 'block';
+    document.getElementById('toggle-line').classList.add('active');
+    document.getElementById('toggle-bar').classList.remove('active');
     renderTrends('clinician-trends-content', DEMO_HISTORY);
     showScreen('clinician-trends');
     return;
@@ -554,6 +582,12 @@ async function clinicianLookup() {
     }
 
     document.getElementById('clinician-trends-title').textContent = `Symptom Trends — PIN: ${pin}`;
+    clinicianHistory = history;
+    document.getElementById('clinician-breakdown-content').innerHTML = '';
+    document.getElementById('clinician-breakdown-content').style.display = 'none';
+    document.getElementById('clinician-trends-content').style.display = 'block';
+    document.getElementById('toggle-line').classList.add('active');
+    document.getElementById('toggle-bar').classList.remove('active');
     renderTrends('clinician-trends-content', history);
     showScreen('clinician-trends');
   } catch(e) {
@@ -579,6 +613,21 @@ async function submitPin() {
   if (pin.toLowerCase() === CLINICIAN_PHRASE) {
     document.getElementById('pin-input').value = '';
     showScreen('clinician-lookup');
+    return;
+  }
+
+  // Clinician demo PIN
+  if (pin === CLINICIAN_DEMO_PIN) {
+    document.getElementById('pin-input').value = '';
+    document.getElementById('clinician-trends-title').textContent = 'Symptom Trends — PIN: 999999 (Demo)';
+    clinicianHistory = DEMO_HISTORY;
+    document.getElementById('clinician-breakdown-content').innerHTML = '';
+    document.getElementById('clinician-breakdown-content').style.display = 'none';
+    document.getElementById('clinician-trends-content').style.display = 'block';
+    document.getElementById('toggle-line').classList.add('active');
+    document.getElementById('toggle-bar').classList.remove('active');
+    renderTrends('clinician-trends-content', DEMO_HISTORY);
+    showScreen('clinician-trends');
     return;
   }
 
@@ -860,6 +909,66 @@ function getScorePillStyle(score) {
   return 'background:#fde8e8;color:#9b1c1c';
 }
 
+// ── Date Formatting ───────────────────────────────────────────────────────────
+function formatDate(raw) {
+  if (!raw) return '—';
+  const d = new Date(raw);
+  if (isNaN(d)) return raw;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// ── Abbreviated Question Labels ───────────────────────────────────────────────
+const Q_LABELS = [
+  { num: 1,  label: "Urge strength" },
+  { num: 2,  label: "Urge frequency" },
+  { num: 3,  label: "Hours preoccupied with urges" },
+  { num: 4,  label: "Urge control" },
+  { num: 5,  label: "Thought frequency" },
+  { num: 6,  label: "Hours thinking about behaviors" },
+  { num: 7,  label: "Thought control" },
+  { num: 8,  label: "Time spent in behaviors" },
+  { num: 9,  label: "Anticipatory excitement" },
+  { num: 10, label: "Excitement/pleasure during behaviors" },
+  { num: 11, label: "Emotional distress" },
+  { num: 12, label: "Personal/relationship impact" },
+];
+
+const SCALE_LABELS = ["0 — None", "1 — Mild", "2 — Moderate", "3 — Severe", "4 — Extreme"];
+const CONTROL_LABELS = ["0 — Complete control", "1 — Much control", "2 — Moderate control", "3 — Minimal control", "4 — No control"];
+const FREQ_LABELS = ["0 — None", "1 — Once", "2 — 2–3 times", "3 — Several to many", "4 — Constant"];
+const TIME_LABELS = ["0 — None", "1 — 1hr or less", "2 — 1–7hrs", "3 — 7–21hrs", "4 — +21hrs"];
+
+const Q_SCALE_MAP = {
+  1: SCALE_LABELS, 2: FREQ_LABELS, 3: TIME_LABELS, 4: CONTROL_LABELS,
+  5: FREQ_LABELS, 6: TIME_LABELS, 7: CONTROL_LABELS, 8: TIME_LABELS,
+  9: SCALE_LABELS, 10: SCALE_LABELS, 11: SCALE_LABELS, 12: SCALE_LABELS
+};
+
+function buildDetailRow(entry, rowId) {
+  const items = Q_LABELS.map(q => {
+    const val = parseInt(entry['q' + q.num]);
+    const scaleArr = Q_SCALE_MAP[q.num];
+    const display = (!isNaN(val) && scaleArr[val]) ? scaleArr[val] : val;
+    return `<tr style="background:#f8fbfb;">
+      <td style="padding:6px 12px; font-size:12px; color:var(--muted); padding-left:24px;">Q${q.num}: ${q.label}</td>
+      <td style="padding:6px 12px; font-size:12px; color:var(--ink);" colspan="3">${display}</td>
+    </tr>`;
+  }).join('');
+  return `<tr id="${rowId}" style="display:none;">
+    <td colspan="4" style="padding:0; border-bottom: 2px solid var(--teal-bg);">
+      <table style="width:100%; border-collapse:collapse;">${items}</table>
+    </td>
+  </tr>`;
+}
+
+function toggleDetail(rowId, btn) {
+  const row = document.getElementById(rowId);
+  const isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : 'table-row';
+  btn.textContent = isOpen ? '▸ Details' : '▾ Details';
+}
+
+
 function renderTrends(containerId, history) {
   const container = document.getElementById(containerId);
   if (!history || history.length === 0) {
@@ -871,22 +980,28 @@ function renderTrends(containerId, history) {
   const chartData = [...sorted].reverse();
   const chartId = containerId + '-chart';
 
+  const tableRows = sorted.map((entry, idx) => {
+    const s = parseInt(entry.total);
+    const band = s<=12?'Minimal':s<=24?'Mild':s<=36?'Moderate':'Severe';
+    const detailId = `detail-${containerId}-${idx}`;
+    const btnId = `btn-${containerId}-${idx}`;
+    return `<tr>
+      <td style="vertical-align:top;">
+        <div>${formatDate(entry.date)}</div>
+        <button id="${btnId}" onclick="toggleDetail('${detailId}', this)" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;padding:2px 0 0 0;">▸ Details</button>
+      </td>
+      <td><span class="score-pill" style="${getScorePillStyle(s)}">${s}</span></td>
+      <td>${band}</td>
+      <td class="notes-cell">${entry.notes ? entry.notes : '<span style="opacity:0.4">—</span>'}</td>
+    </tr>
+    ${buildDetailRow(entry, detailId)}`;
+  }).join('');
+
   container.innerHTML = `
     <div class="chart-wrap"><canvas id="${chartId}"></canvas></div>
     <table class="history-table">
       <thead><tr><th>Date</th><th>Score</th><th>Range</th><th>Notes</th></tr></thead>
-      <tbody>
-        ${sorted.map(entry => {
-          const s = parseInt(entry.total);
-          const band = s<=12?'Minimal':s<=24?'Mild':s<=36?'Moderate':'Severe';
-          return `<tr>
-            <td>${entry.date}</td>
-            <td><span class="score-pill" style="${getScorePillStyle(s)}">${s}</span></td>
-            <td>${band}</td>
-            <td class="notes-cell">${entry.notes ? entry.notes : '<span style="opacity:0.4">—</span>'}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
+      <tbody>${tableRows}</tbody>
     </table>`;
 
   setTimeout(() => {
@@ -897,7 +1012,7 @@ function renderTrends(containerId, history) {
     new Chart(ctx, {
       type: 'line',
       data: {
-        labels: chartData.map(e => e.date),
+        labels: chartData.map(e => formatDate(e.date)),
         datasets: [{
           label: 'Total Score',
           data: chartData.map(e => parseInt(e.total)),
@@ -925,14 +1040,98 @@ function renderTrends(containerId, history) {
             grid: { color: '#e2e8f0' }
           },
           x: {
-            ticks: { font: { family:'DM Sans', size:11 }, color:'#718096' },
+            ticks: {
+              font: { family:'DM Sans', size:11 },
+              color:'#718096',
+              maxRotation: 90,
+              minRotation: 90
+            },
             grid: { display: false }
           }
         }
       }
     });
   }, 50);
+}// ── Clinician Chart Toggle ────────────────────────────────────────────────────
+let clinicianHistory = [];
+
+function switchChart(type) {
+  document.getElementById('toggle-line').classList.toggle('active', type === 'line');
+  document.getElementById('toggle-bar').classList.toggle('active', type === 'bar');
+  document.getElementById('clinician-trends-content').style.display = type === 'line' ? 'block' : 'none';
+  document.getElementById('clinician-breakdown-content').style.display = type === 'bar' ? 'block' : 'none';
+  if (type === 'bar' && document.getElementById('clinician-breakdown-content').innerHTML === '') {
+    renderBreakdown(clinicianHistory);
+  }
 }
+
+function renderBreakdown(history) {
+  const container = document.getElementById('clinician-breakdown-content');
+  if (!history || history.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><p>No data to display.</p></div>`;
+    return;
+  }
+
+  const sorted = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const limited = sorted.slice(0, 12).reverse(); // oldest → newest left to right
+
+  const CELL_COLORS = [
+    { bg: '#d5f5e3', text: '#1a7a45' }, // 0 — minimal
+    { bg: '#fef9c3', text: '#856404' }, // 1 — mild
+    { bg: '#ffe4cc', text: '#9a4d00' }, // 2 — moderate
+    { bg: '#fdc8b0', text: '#7a2500' }, // 3 — severe
+    { bg: '#fde8e8', text: '#9b1c1c' }, // 4 — extreme
+  ];
+
+  const SECTIONS = [
+    { label: 'Urges', qs: [1,2,3,4] },
+    { label: 'Thoughts', qs: [5,6,7] },
+    { label: 'Behaviors & impact', qs: [8,9,10,11,12] },
+  ];
+
+  const colWidth = `${Math.floor(100 / (limited.length + 1))}%`;
+
+  let tableHTML = `
+    <div style="font-size:12px; color:var(--muted); margin-bottom:12px;">
+      Showing last ${limited.length} submission${limited.length !== 1 ? 's' : ''}.
+      Color reflects severity: <span style="background:#d5f5e3;color:#1a7a45;padding:1px 6px;border-radius:3px;font-weight:500;">0</span>
+      <span style="background:#fef9c3;color:#856404;padding:1px 6px;border-radius:3px;font-weight:500;">1</span>
+      <span style="background:#ffe4cc;color:#9a4d00;padding:1px 6px;border-radius:3px;font-weight:500;">2</span>
+      <span style="background:#fdc8b0;color:#7a2500;padding:1px 6px;border-radius:3px;font-weight:500;">3</span>
+      <span style="background:#fde8e8;color:#9b1c1c;padding:1px 6px;border-radius:3px;font-weight:500;">4</span>
+    </div>
+    <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:separate; border-spacing:2px; table-layout:fixed;">
+      <thead>
+        <tr>
+          <th style="text-align:left; font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; padding:0 4px 8px 0; width:140px;">Question</th>
+          ${limited.map(e => `<th style="text-align:center; font-size:10px; font-weight:500; color:var(--muted); padding:0 0 8px 0; line-height:1.3;">${formatDate(e.date).replace(', ', ',<br>')}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
+
+  SECTIONS.forEach(section => {
+    tableHTML += `<tr>
+      <td colspan="${limited.length + 1}" style="padding:10px 0 4px 0; font-size:10px; font-weight:600; color:var(--teal-dark); text-transform:uppercase; letter-spacing:0.08em;">${section.label}</td>
+    </tr>`;
+
+    section.qs.forEach(qNum => {
+      const qInfo = Q_LABELS.find(q => q.num === qNum);
+      tableHTML += `<tr>
+        <td style="font-size:12px; color:var(--ink); padding:1px 8px 1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;" title="${qInfo.label}">Q${qNum}: ${qInfo.label}</td>
+        ${limited.map(e => {
+          const val = parseInt(e['q' + qNum]);
+          const c = (!isNaN(val) && CELL_COLORS[val]) ? CELL_COLORS[val] : CELL_COLORS[0];
+          return `<td style="text-align:center; background:${c.bg}; color:${c.text}; font-size:12px; font-weight:600; padding:5px 2px; border-radius:4px;">${isNaN(val) ? '—' : val}</td>`;
+        }).join('')}
+      </tr>`;
+    });
+  });
+
+  tableHTML += `</tbody></table></div>`;
+  container.innerHTML = tableHTML;
+}
+
 </script>
 </body>
 </html>
