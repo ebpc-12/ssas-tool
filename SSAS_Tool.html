@@ -919,18 +919,18 @@ function formatDate(raw) {
 
 // ── Abbreviated Question Labels ───────────────────────────────────────────────
 const Q_LABELS = [
-  { num: 1,  label: "Urge strength" },
-  { num: 2,  label: "Urge frequency" },
-  { num: 3,  label: "Hours preoccupied with urges" },
-  { num: 4,  label: "Urge control" },
-  { num: 5,  label: "Thought frequency" },
-  { num: 6,  label: "Hours thinking about behaviors" },
-  { num: 7,  label: "Thought control" },
-  { num: 8,  label: "Time spent in behaviors" },
-  { num: 9,  label: "Anticipatory excitement" },
-  { num: 10, label: "Excitement/pleasure during behaviors" },
-  { num: 11, label: "Emotional distress" },
-  { num: 12, label: "Personal/relationship impact" },
+  { num: 1,  label: "Urge strength",                    full: "If you had urges to engage in problematic sexual behaviors, on average, how strong were your urges?" },
+  { num: 2,  label: "Urge frequency",                   full: "How many times did you experience urges to engage in problematic sexual behaviors?" },
+  { num: 3,  label: "Hours preoccupied with urges",     full: "How many hours were you preoccupied with your urges to engage in problematic sexual behaviors?" },
+  { num: 4,  label: "Urge control",                     full: "How much were you able to control your urges?" },
+  { num: 5,  label: "Thought frequency",                full: "How often did thoughts about engaging in problematic sexual behaviors come up?" },
+  { num: 6,  label: "Hours thinking about behaviors",   full: "Approximately how many hours did you spend thinking about engaging in problematic sexual behaviors?" },
+  { num: 7,  label: "Thought control",                  full: "How much were you able to control your thoughts of problematic sexual behaviors?" },
+  { num: 8,  label: "Time spent in behaviors",          full: "Approximately how much total time did you spend engaging in problematic sexual behaviors?" },
+  { num: 9,  label: "Anticipatory excitement",          full: "On average, how much anticipatory tension and/or excitement did you have shortly before you engaged in problematic sexual behaviors? If you did not engage, estimate what it would have been." },
+  { num: 10, label: "Excitement/pleasure during behaviors", full: "On average, how much excitement and pleasure did you feel when you engaged in problematic sexual behaviors? If you did not engage, estimate what it would have been." },
+  { num: 11, label: "Emotional distress",               full: "How much emotional distress (mental pain or anguish, shame, guilt, embarrassment) has your problematic sexual behavior caused you?" },
+  { num: 12, label: "Personal/relationship impact",     full: "How much personal trouble (relationship, financial, legal, job, medical or health) has your problematic sexual behavior caused you?" },
 ];
 
 const SCALE_LABELS = ["0 — None", "1 — Mild", "2 — Moderate", "3 — Severe", "4 — Extreme"];
@@ -950,7 +950,7 @@ function buildDetailRow(entry, rowId) {
     const scaleArr = Q_SCALE_MAP[q.num];
     const display = (!isNaN(val) && scaleArr[val]) ? scaleArr[val] : val;
     return `<tr style="background:#f8fbfb;">
-      <td style="padding:6px 12px; font-size:12px; color:var(--muted); padding-left:24px;">Q${q.num}: ${q.label}</td>
+      <td style="padding:6px 12px; font-size:12px; color:var(--muted); padding-left:24px; cursor:help;" title="${q.full}">Q${q.num}: ${q.label}</td>
       <td style="padding:6px 12px; font-size:12px; color:var(--ink);" colspan="3">${display}</td>
     </tr>`;
   }).join('');
@@ -1118,7 +1118,7 @@ function renderBreakdown(history) {
     section.qs.forEach(qNum => {
       const qInfo = Q_LABELS.find(q => q.num === qNum);
       tableHTML += `<tr>
-        <td style="font-size:12px; color:var(--ink); padding:1px 8px 1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;" title="${qInfo.label}">Q${qNum}: ${qInfo.label}</td>
+        <td style="font-size:12px; color:var(--ink); padding:1px 8px 1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; cursor:help;" title="${qInfo.full}">Q${qNum}: ${qInfo.label}</td>
         ${limited.map(e => {
           const val = parseInt(e['q' + qNum]);
           const c = (!isNaN(val) && CELL_COLORS[val]) ? CELL_COLORS[val] : CELL_COLORS[0];
